@@ -1,488 +1,351 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
-import { Zap, Home, RotateCcw, Trophy, Clock, Target, Flame } from "lucide-react"
-import Link from "next/link"
+import { Zap, Calculator } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
+import BaseGame, { BaseGameState, GameStats, GameSettings } from "@/components/game/BaseGame"
+import GameResult from "@/components/game/GameResult"
+import { audioManager } from "@/lib/audio-manager"
+import { LightningMathManager } from "@/lib/game-manager"
 
-interface MathProblem {
-  expression: string
-  answer: number
-  difficulty: number
-}
-
-interface GameState {
-  currentProblem: MathProblem | null
+interface LightningMathState extends BaseGameState {
+  currentProblem: { expression: string; answer: number } | null
   userAnswer: string
-  score: number
-  streak: number
-  timeLeft: number
-  gameActive: boolean
-  problemCount: number
-  correctAnswers: number
-  gameStarted: boolean
-  showResult: boolean
-  resultType: "correct" | "wrong" | null
-}
-
-const generateProblem = (difficulty: number): MathProblem => {
-  const operations = ["+", "-", "*"]
-  const maxNum = Math.min(5 + difficulty * 2, 20)
-
-  if (difficulty <= 3) {
-    // Simple operations
-    const a = Math.floor(Math.random() * maxNum) + 1
-    const b = Math.floor(Math.random() * maxNum) + 1
-    const op = operations[Math.floor(Math.random() * operations.length)]
-
-    let expression: string
-    let answer: number
-
-    switch (op) {
-      case "+":
-        expression = `${a} + ${b}`
-        answer = a + b
-        break
-      case "-":
-        expression = `${Math.max(a, b)} - ${Math.min(a, b)}`
-        answer = Math.max(a, b) - Math.min(a, b)
-        break
-      case "*":
-        expression = `${a} × ${b}`
-        answer = a * b
-        break
-      default:
-        expression = `${a} + ${b}`
-        answer = a + b
-    }
-
-    return { expression, answer, difficulty }
-  } else {
-    // Complex operations with multiple steps
-    const a = Math.floor(Math.random() * 15) + 1
-    const b = Math.floor(Math.random() * 15) + 1
-    const c = Math.floor(Math.random() * 10) + 1
-
-    const expressions = [
-      { expr: `${a} × ${b} + ${c}`, ans: a * b + c },
-      { expr: `${a} × ${b} - ${c}`, ans: a * b - c },
-      { expr: `${a + b} × ${c}`, ans: (a + b) * c },
-      { expr: `${a * c} + ${b} - ${Math.floor(c / 2)}`, ans: a * c + b - Math.floor(c / 2) },
-    ]
-
-    const selected = expressions[Math.floor(Math.random() * expressions.length)]
-    return { expression: selected.expr, answer: selected.ans, difficulty }
-  }
+  gameManager: LightningMathManager | null
 }
 
 export default function LightningMathGame() {
-  const [gameState, setGameState] = useState<GameState>({
+  const [gameState, setGameState] = useState<LightningMathState>({
+    phase: "idle",
+    stats: {
+      score: 0,
+      level: 1,
+      streak: 0,
+      accuracy: 0,
+      timeElapsed: 0,
+      bestScore: parseInt(localStorage.getItem('lightning-math-best-score') || '0')
+    },
+    settings: {
+      timeLimit: 5000, // 5 seconds per problem
+      difficulty: "auto",
+      soundEnabled: true,
+      showHints: false
+    },
+    timeLeft: 5000,
+    isCorrect: null,
+    currentRound: 1,
+    maxRounds: 20,
     currentProblem: null,
     userAnswer: "",
-    score: 0,
-    streak: 0,
-    timeLeft: 5000, // 5 seconds in milliseconds
-    gameActive: false,
-    problemCount: 0,
-    correctAnswers: 0,
-    gameStarted: false,
-    showResult: false,
-    resultType: null,
+    gameManager: null
   })
 
-  const [difficulty, setDifficulty] = useState(1)
-  const [gameSettings, setGameSettings] = useState({
-    timePerProblem: 5000,
-    maxProblems: 20,
-  })
+  const [startTime, setStartTime] = useState<number>(0)
 
-  // Timer effect
   useEffect(() => {
     let interval: NodeJS.Timeout
 
-    if (gameState.gameActive && gameState.timeLeft > 0) {
+    if (gameState.phase === "playing" && gameState.timeLeft > 0 && gameState.gameManager) {
       interval = setInterval(() => {
-        setGameState((prev) => ({
+        const newTimeLeft = gameState.timeLeft - 100
+        gameState.gameManager.updateTimeLeft(newTimeLeft)
+        
+        setGameState(prev => ({
           ...prev,
-          timeLeft: prev.timeLeft - 100,
+          timeLeft: newTimeLeft,
+          stats: {
+            ...prev.stats,
+            timeElapsed: Date.now() - startTime
+          }
         }))
+
+        if (newTimeLeft <= 0) {
+          handleTimeUp()
+        }
       }, 100)
-    } else if (gameState.gameActive && gameState.timeLeft <= 0) {
-      // Time's up
-      handleAnswer(false)
     }
 
     return () => clearInterval(interval)
-  }, [gameState.gameActive, gameState.timeLeft])
+  }, [gameState.phase, gameState.timeLeft, gameState.gameManager, startTime])
 
-  const startGame = () => {
-    const newProblem = generateProblem(difficulty)
-    setGameState({
-      currentProblem: newProblem,
+  const startGame = useCallback(() => {
+    const config = {
+      timeLimit: gameState.settings.timeLimit || 5000,
+      maxRounds: gameState.maxRounds,
+      difficulty: gameState.settings.difficulty,
+      soundEnabled: gameState.settings.soundEnabled,
+      showHints: gameState.settings.showHints
+    }
+    
+    const manager = new LightningMathManager(config)
+    manager.startGame()
+    
+    const problem = manager.generateChallenge()
+    const now = Date.now()
+    setStartTime(now)
+    
+    setGameState(prev => ({
+      ...prev,
+      phase: "playing",
+      gameManager: manager,
+      currentProblem: problem,
       userAnswer: "",
-      score: 0,
-      streak: 0,
-      timeLeft: gameSettings.timePerProblem,
-      gameActive: true,
-      problemCount: 1,
-      correctAnswers: 0,
-      gameStarted: true,
-      showResult: false,
-      resultType: null,
-    })
-  }
+      timeLeft: config.timeLimit,
+      stats: {
+        ...prev.stats,
+        score: 0,
+        streak: 0,
+        timeElapsed: 0
+      }
+    }))
 
-  const handleAnswer = useCallback(
-    (isCorrect: boolean) => {
-      if (!gameState.gameActive) return
+    audioManager.playSound('countdown')
+  }, [gameState.settings, gameState.maxRounds])
 
-      const points = isCorrect ? (10 + gameState.streak * 2) * difficulty : 0
-      const newStreak = isCorrect ? gameState.streak + 1 : 0
+  const handleTimeUp = useCallback(() => {
+    if (!gameState.gameManager) return
+    
+    const result = gameState.gameManager.submitAnswer(null)
+    setGameState(prev => ({
+      ...prev,
+      isCorrect: false
+    }))
 
-      setGameState((prev) => ({
-        ...prev,
-        score: prev.score + points,
-        streak: newStreak,
-        correctAnswers: prev.correctAnswers + (isCorrect ? 1 : 0),
-        showResult: true,
-        resultType: isCorrect ? "correct" : "wrong",
-        gameActive: false,
-      }))
+    setTimeout(() => {
+      nextProblem()
+    }, 1000)
+  }, [gameState.gameManager])
 
-      // Show result for 1 second then continue
-      setTimeout(() => {
-        if (gameState.problemCount >= gameSettings.maxProblems) {
-          // Game over
-          setGameState((prev) => ({
-            ...prev,
-            gameActive: false,
-            showResult: false,
-          }))
-        } else {
-          // Next problem
-          const newDifficulty = Math.floor(gameState.problemCount / 5) + 1
-          const newProblem = generateProblem(newDifficulty)
-          setGameState((prev) => ({
-            ...prev,
-            currentProblem: newProblem,
-            userAnswer: "",
-            timeLeft: gameSettings.timePerProblem,
-            gameActive: true,
-            problemCount: prev.problemCount + 1,
-            showResult: false,
-            resultType: null,
-          }))
-          setDifficulty(newDifficulty)
-        }
-      }, 1000)
-    },
-    [
-      gameState.gameActive,
-      gameState.streak,
-      gameState.problemCount,
-      gameSettings.maxProblems,
-      gameSettings.timePerProblem,
-      difficulty,
-    ],
-  )
+  const submitAnswer = useCallback(() => {
+    if (!gameState.gameManager || !gameState.currentProblem || !gameState.userAnswer.trim()) return
 
-  const submitAnswer = () => {
-    if (!gameState.currentProblem || !gameState.gameActive) return
+    const userNum = parseInt(gameState.userAnswer)
+    const result = gameState.gameManager.submitAnswer(userNum)
+    
+    setGameState(prev => ({
+      ...prev,
+      userAnswer: "",
+      isCorrect: result.isCorrect,
+      stats: {
+        ...prev.stats,
+        score: prev.gameManager?.getScore() || 0,
+        streak: prev.gameManager?.getStreak() || 0
+      }
+    }))
 
-    const userNum = Number.parseInt(gameState.userAnswer)
-    const isCorrect = userNum === gameState.currentProblem.answer
-    handleAnswer(isCorrect)
-  }
+    setTimeout(() => {
+      nextProblem()
+    }, 1000)
+  }, [gameState.gameManager, gameState.currentProblem, gameState.userAnswer])
+
+  const nextProblem = useCallback(() => {
+    if (!gameState.gameManager) return
+
+    const canContinue = gameState.gameManager.nextRound()
+    
+    if (!canContinue) {
+      endGame()
+      return
+    }
+
+    const problem = gameState.gameManager.generateChallenge()
+    setGameState(prev => ({
+      ...prev,
+      currentProblem: problem,
+      userAnswer: "",
+      timeLeft: prev.settings.timeLimit || 5000,
+      currentRound: prev.gameManager?.getCurrentRound() || 1,
+      isCorrect: null,
+      stats: {
+        ...prev.stats,
+        level: prev.gameManager?.getCurrentLevel() || 1
+      }
+    }))
+  }, [gameState.gameManager])
+
+  const endGame = useCallback(() => {
+    if (!gameState.gameManager) return
+
+    const result = gameState.gameManager.endGame()
+    const accuracy = gameState.currentRound > 1 ? (gameState.stats.score / (gameState.currentRound - 1)) * 100 : 0
+    
+    setGameState(prev => ({
+      ...prev,
+      phase: "result",
+      stats: {
+        ...prev.stats,
+        accuracy: Math.min(100, accuracy),
+        timeElapsed: Date.now() - startTime
+      }
+    }))
+
+    // Save best score
+    if (result.score > gameState.stats.bestScore) {
+      localStorage.setItem('lightning-math-best-score', result.score.toString())
+    }
+  }, [gameState.gameManager, gameState.currentRound, gameState.stats, startTime])
+
+  const pauseGame = useCallback(() => {
+    if (!gameState.gameManager) return
+    gameState.gameManager.pauseGame()
+    setGameState(prev => ({ ...prev, phase: "paused" }))
+  }, [gameState.gameManager])
+
+  const resumeGame = useCallback(() => {
+    if (!gameState.gameManager) return
+    gameState.gameManager.resumeGame()
+    setGameState(prev => ({ ...prev, phase: "playing" }))
+  }, [gameState.gameManager])
+
+  const resetGame = useCallback(() => {
+    setGameState(prev => ({
+      ...prev,
+      phase: "idle",
+      currentProblem: null,
+      userAnswer: "",
+      gameManager: null,
+      currentRound: 1,
+      timeLeft: prev.settings.timeLimit || 5000,
+      isCorrect: null,
+      stats: {
+        ...prev.stats,
+        score: 0,
+        streak: 0,
+        accuracy: 0,
+        timeElapsed: 0
+      }
+    }))
+  }, [])
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
+    if (e.key === "Enter" && gameState.phase === "playing") {
       submitAnswer()
     }
   }
 
-  const resetGame = () => {
-    setGameState({
-      currentProblem: null,
-      userAnswer: "",
-      score: 0,
-      streak: 0,
-      timeLeft: 5000,
-      gameActive: false,
-      problemCount: 0,
-      correctAnswers: 0,
-      gameStarted: false,
-      showResult: false,
-      resultType: null,
-    })
-    setDifficulty(1)
+  // Result phase
+  if (gameState.phase === "result") {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-red-50 p-4">
+        <div className="container mx-auto py-8">
+          <GameResult
+            title="Lightning Math"
+            isVictory={gameState.stats.accuracy >= 70}
+            stats={gameState.stats}
+            previousBest={{
+              score: gameState.stats.bestScore,
+              accuracy: 0,
+              level: 1
+            }}
+            onPlayAgain={resetGame}
+            colorScheme={{
+              primary: "bg-orange-500",
+              secondary: "bg-orange-100",
+              accent: "bg-red-100"
+            }}
+          />
+        </div>
+      </div>
+    )
   }
 
-  const timePercentage = (gameState.timeLeft / gameSettings.timePerProblem) * 100
-  const accuracy =
-    gameState.problemCount > 0 ? Math.round((gameState.correctAnswers / gameState.problemCount) * 100) : 0
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-white to-orange-50">
-      {/* Header */}
-      <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Link href="/">
-                <Button variant="outline" size="icon">
-                  <Home className="h-4 w-4" />
-                </Button>
-              </Link>
-              <div className="flex items-center gap-2">
-                <div className="p-2 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl">
-                  <Zap className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold">Lightning Math</h1>
-                  <p className="text-sm text-gray-500">Giải toán nhanh như chớp</p>
-                </div>
+    <BaseGame
+      gameTitle="Lightning Math"
+      gameIcon={<Calculator className="h-8 w-8" />}
+      gameDescription="Giải toán nhanh trong thời gian giới hạn. Mỗi câu có 5 giây!"
+      onGameStart={startGame}
+      onGamePause={pauseGame}
+      onGameResume={resumeGame}
+      onGameReset={resetGame}
+      onGameEnd={endGame}
+      gameState={gameState}
+      colorScheme={{
+        primary: "bg-orange-500",
+        secondary: "bg-orange-100",
+        accent: "bg-red-100"
+      }}
+      showTimer={true}
+      showProgress={true}
+      enablePause={true}
+    >
+      {/* Game Content */}
+      <AnimatePresence mode="wait">
+        {gameState.phase === "playing" && gameState.currentProblem && (
+          <motion.div
+            key="game-content"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="text-center space-y-8"
+          >
+            {/* Problem Display */}
+            <div className="bg-white rounded-xl p-8 shadow-lg">
+              <div className="text-6xl font-bold text-gray-800 mb-6">
+                {gameState.currentProblem.expression}
               </div>
-            </div>
+              
+              {/* Answer Input */}
+              <div className="flex justify-center">
+                <Input
+                  type="number"
+                  placeholder="Nhập đáp án..."
+                  value={gameState.userAnswer}
+                  onChange={(e) => setGameState(prev => ({ ...prev, userAnswer: e.target.value }))}
+                  onKeyPress={handleKeyPress}
+                  className="text-center text-2xl font-bold w-48 h-16"
+                  autoFocus
+                />
+              </div>
 
-            <div className="flex items-center gap-4">
-              <div className="text-right">
-                <div className="text-sm font-medium">Điểm: {gameState.score}</div>
-                <div className="text-xs text-gray-500">Streak: {gameState.streak}</div>
-              </div>
-              <Button variant="outline" onClick={resetGame}>
-                <RotateCcw className="h-4 w-4 mr-2" />
-                Reset
+              <Button
+                onClick={submitAnswer}
+                disabled={!gameState.userAnswer.trim()}
+                className="mt-6 bg-orange-500 hover:bg-orange-600 text-white px-8 py-3 text-lg"
+              >
+                <Zap className="h-5 w-5 mr-2" />
+                Xác nhận
               </Button>
             </div>
-          </div>
-        </div>
-      </header>
 
-      <div className="container mx-auto px-4 py-8">
-        {!gameState.gameStarted ? (
-          // Start Screen
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-2xl mx-auto">
-            <Card>
-              <CardHeader className="text-center">
-                <CardTitle className="text-3xl mb-4">Lightning Math</CardTitle>
-                <div className="text-gray-600 space-y-2">
-                  <p>Giải các phép tính nhanh nhất có thể!</p>
-                  <p>
-                    Bạn có <strong>{gameSettings.timePerProblem / 1000} giây</strong> cho mỗi câu
-                  </p>
-                  <p>Độ khó sẽ tăng dần theo thời gian</p>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-3 gap-4 text-center">
-                  <div className="p-4 bg-yellow-50 rounded-lg">
-                    <Trophy className="h-8 w-8 text-yellow-600 mx-auto mb-2" />
-                    <div className="text-sm font-medium">Điểm cao</div>
-                    <div className="text-lg font-bold text-yellow-600">850</div>
-                  </div>
-                  <div className="p-4 bg-orange-50 rounded-lg">
-                    <Target className="h-8 w-8 text-orange-600 mx-auto mb-2" />
-                    <div className="text-sm font-medium">Độ chính xác</div>
-                    <div className="text-lg font-bold text-orange-600">87%</div>
-                  </div>
-                  <div className="p-4 bg-red-50 rounded-lg">
-                    <Flame className="h-8 w-8 text-red-600 mx-auto mb-2" />
-                    <div className="text-sm font-medium">Streak tốt nhất</div>
-                    <div className="text-lg font-bold text-red-600">12</div>
-                  </div>
-                </div>
-
-                <Button
-                  onClick={startGame}
-                  className="w-full h-16 text-lg bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600"
-                >
-                  <Zap className="h-6 w-6 mr-2" />
-                  Bắt đầu chơi
-                </Button>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ) : gameState.problemCount > gameSettings.maxProblems ? (
-          // Game Over Screen
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="max-w-2xl mx-auto"
-          >
-            <Card>
-              <CardHeader className="text-center">
-                <CardTitle className="text-3xl mb-4">Hoàn thành!</CardTitle>
-                <div className="text-6xl mb-4">🎉</div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="text-center p-4 bg-green-50 rounded-lg">
-                    <div className="text-2xl font-bold text-green-600">{gameState.score}</div>
-                    <div className="text-sm text-gray-600">Tổng điểm</div>
-                  </div>
-                  <div className="text-center p-4 bg-blue-50 rounded-lg">
-                    <div className="text-2xl font-bold text-blue-600">{accuracy}%</div>
-                    <div className="text-sm text-gray-600">Độ chính xác</div>
-                  </div>
-                  <div className="text-center p-4 bg-purple-50 rounded-lg">
-                    <div className="text-2xl font-bold text-purple-600">{gameState.correctAnswers}</div>
-                    <div className="text-sm text-gray-600">Câu đúng</div>
-                  </div>
-                  <div className="text-center p-4 bg-orange-50 rounded-lg">
-                    <div className="text-2xl font-bold text-orange-600">
-                      {Math.max(...Array.from({ length: gameState.problemCount }, (_, i) => gameState.streak))}
-                    </div>
-                    <div className="text-sm text-gray-600">Streak tốt nhất</div>
-                  </div>
-                </div>
-
-                <div className="flex gap-4">
-                  <Button onClick={startGame} className="flex-1">
-                    <RotateCcw className="h-4 w-4 mr-2" />
-                    Chơi lại
-                  </Button>
-                  <Link href="/" className="flex-1">
-                    <Button variant="outline" className="w-full">
-                      <Home className="h-4 w-4 mr-2" />
-                      Về trang chủ
-                    </Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ) : (
-          // Game Screen
-          <div className="max-w-2xl mx-auto space-y-6">
-            {/* Game Stats */}
+            {/* Game Info */}
             <div className="grid grid-cols-4 gap-4">
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-blue-600">{gameState.score}</div>
-                  <div className="text-sm text-gray-500">Điểm</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-orange-600">{gameState.streak}</div>
-                  <div className="text-sm text-gray-500">Streak</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-green-600">{gameState.problemCount}</div>
-                  <div className="text-sm text-gray-500">Câu hỏi</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-purple-600">{accuracy}%</div>
-                  <div className="text-sm text-gray-500">Chính xác</div>
-                </CardContent>
-              </Card>
+              <div className="bg-white rounded-lg p-4 text-center">
+                <div className="text-2xl font-bold text-orange-600">{gameState.stats.score}</div>
+                <div className="text-sm text-gray-600">Điểm</div>
+              </div>
+              <div className="bg-white rounded-lg p-4 text-center">
+                <div className="text-2xl font-bold text-red-600">{gameState.stats.streak}</div>
+                <div className="text-sm text-gray-600">Streak</div>
+              </div>
+              <div className="bg-white rounded-lg p-4 text-center">
+                <div className="text-2xl font-bold text-purple-600">{gameState.stats.level}</div>
+                <div className="text-sm text-gray-600">Level</div>
+              </div>
+              <div className="bg-white rounded-lg p-4 text-center">
+                <div className="text-2xl font-bold text-blue-600">{gameState.currentRound}/{gameState.maxRounds}</div>
+                <div className="text-sm text-gray-600">Câu</div>
+              </div>
             </div>
 
-            {/* Timer */}
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">Thời gian còn lại</span>
-                  <Badge variant={timePercentage > 50 ? "default" : timePercentage > 25 ? "secondary" : "destructive"}>
-                    <Clock className="h-3 w-3 mr-1" />
-                    {Math.ceil(gameState.timeLeft / 1000)}s
-                  </Badge>
-                </div>
-                <Progress value={timePercentage} className={`h-3 ${timePercentage <= 25 ? "animate-pulse" : ""}`} />
-              </CardContent>
-            </Card>
-
-            {/* Problem */}
-            <AnimatePresence mode="wait">
-              {gameState.showResult ? (
-                <motion.div
-                  key="result"
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0.8, opacity: 0 }}
-                  className="text-center"
-                >
-                  <Card
-                    className={`border-4 ${gameState.resultType === "correct" ? "border-green-500 bg-green-50" : "border-red-500 bg-red-50"}`}
-                  >
-                    <CardContent className="p-8">
-                      <div
-                        className={`text-6xl mb-4 ${gameState.resultType === "correct" ? "text-green-600" : "text-red-600"}`}
-                      >
-                        {gameState.resultType === "correct" ? "✓" : "✗"}
-                      </div>
-                      <div className="text-2xl font-bold mb-2">
-                        {gameState.resultType === "correct" ? "Chính xác!" : "Sai rồi!"}
-                      </div>
-                      {gameState.resultType === "wrong" && gameState.currentProblem && (
-                        <div className="text-lg text-gray-600">Đáp án đúng: {gameState.currentProblem.answer}</div>
-                      )}
-                      {gameState.resultType === "correct" && gameState.streak > 1 && (
-                        <div className="flex items-center justify-center gap-2 text-orange-600">
-                          <Flame className="h-5 w-5" />
-                          <span>Streak x{gameState.streak}!</span>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="problem"
-                  initial={{ x: 20, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  exit={{ x: -20, opacity: 0 }}
-                >
-                  <Card>
-                    <CardHeader className="text-center">
-                      <div className="flex items-center justify-center gap-2 mb-4">
-                        <Badge variant="outline">Câu {gameState.problemCount}</Badge>
-                        <Badge variant="secondary">Level {difficulty}</Badge>
-                      </div>
-                      <CardTitle className="text-6xl font-mono mb-6">{gameState.currentProblem?.expression}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      <div className="flex gap-4">
-                        <Input
-                          type="number"
-                          value={gameState.userAnswer}
-                          onChange={(e) => setGameState((prev) => ({ ...prev, userAnswer: e.target.value }))}
-                          onKeyPress={handleKeyPress}
-                          placeholder="Nhập đáp án..."
-                          className="text-2xl text-center h-16"
-                          autoFocus
-                          disabled={!gameState.gameActive}
-                        />
-                        <Button
-                          onClick={submitAnswer}
-                          disabled={!gameState.userAnswer || !gameState.gameActive}
-                          className="h-16 px-8 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600"
-                        >
-                          <Zap className="h-5 w-5 mr-2" />
-                          Gửi
-                        </Button>
-                      </div>
-
-                      <div className="text-center text-sm text-gray-500">Nhấn Enter để gửi đáp án</div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+            {/* Feedback */}
+            {gameState.isCorrect !== null && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className={`text-2xl font-bold ${
+                  gameState.isCorrect ? "text-green-600" : "text-red-600"
+                }`}
+              >
+                {gameState.isCorrect ? "Chính xác! 🎉" : "Sai rồi! 😞"}
+              </motion.div>
+            )}
+          </motion.div>
         )}
-      </div>
-    </div>
+      </AnimatePresence>
+    </BaseGame>
   )
 }

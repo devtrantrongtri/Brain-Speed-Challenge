@@ -69,7 +69,7 @@ const games = [
     icon: MessageSquare,
     color: "bg-green-500",
     difficulty: "Sáng tạo",
-    timeLimit: "10s",
+    timeLimit: "60s",
     href: "/games/word-storm",
   },
   {
@@ -79,7 +79,7 @@ const games = [
     icon: Puzzle,
     color: "bg-purple-500",
     difficulty: "Logic",
-    timeLimit: "15s",
+    timeLimit: "30s",
     href: "/games/pattern-break",
   },
 ]
