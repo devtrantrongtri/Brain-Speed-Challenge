@@ -57,6 +57,102 @@ const wordChallenges: WordChallenge[] = [
     category: "Hiện đại",
     validWords: ["máy tính", "internet", "smartphone", "AI", "robot", "tương lai", "sáng tạo", "phát triển", "kỹ thuật số", "đổi mới"],
     difficulty: 3
+  },
+
+  // More difficulty 1 challenges
+  {
+    prompt: "Trời",
+    category: "Thiên nhiên",
+    validWords: ["mây", "mưa", "nắng", "gió", "sao", "trăng", "mặt trời", "xanh", "cao", "rộng"],
+    difficulty: 1
+  },
+  {
+    prompt: "Gia đình",
+    category: "Xã hội",
+    validWords: ["bố", "mẹ", "con", "anh", "chị", "em", "ông", "bà", "yêu thương", "hạnh phúc"],
+    difficulty: 1
+  },
+  {
+    prompt: "Nhà",
+    category: "Nơi ở",
+    validWords: ["cửa", "cửa sổ", "phòng", "bếp", "giường", "bàn", "ghế", "tivi", "ấm cúng", "an toàn"],
+    difficulty: 1
+  },
+  {
+    prompt: "Thức ăn",
+    category: "Ẩm thực",
+    validWords: ["cơm", "phở", "bánh mì", "chè", "nước", "ngon", "nóng", "mát", "ngọt", "mặn"],
+    difficulty: 1
+  },
+  {
+    prompt: "Động vật",
+    category: "Thiên nhiên",
+    validWords: ["chó", "mèo", "gà", "vịt", "cá", "chim", "to", "nhỏ", "dễ thương", "nhanh"],
+    difficulty: 1
+  },
+
+  // More difficulty 2 challenges  
+  {
+    prompt: "Thành phố",
+    category: "Địa lý",
+    validWords: ["đường", "xe", "nhà cao tầng", "đông đúc", "ồn ào", "phát triển", "hiện đại", "công việc", "cuộc sống", "tiện nghi"],
+    difficulty: 2
+  },
+  {
+    prompt: "Mùa hè",
+    category: "Thời tiết",
+    validWords: ["nóng", "du lịch", "biển", "bơi", "kem", "quạt", "điều hòa", "nghỉ", "vui chơi", "nắng gắt"],
+    difficulty: 2
+  },
+  {
+    prompt: "Sức khỏe",
+    category: "Y tế",
+    validWords: ["tập thể dục", "ăn uống", "ngủ đủ", "bác sĩ", "thuốc", "bệnh viện", "khỏe mạnh", "tinh thần", "vệ sinh", "phòng bệnh"],
+    difficulty: 2
+  },
+  {
+    prompt: "Bạn bè",
+    category: "Xã hội", 
+    validWords: ["tin tưởng", "chia sẻ", "vui vẻ", "hỗ trợ", "thân thiết", "chơi", "nói chuyện", "hiểu nhau", "quan tâm", "giúp đỡ"],
+    difficulty: 2
+  },
+  {
+    prompt: "Âm nhạc",
+    category: "Nghệ thuật",
+    validWords: ["hát", "nhạc cụ", "giai điệu", "lời bài hát", "ca sĩ", "ban nhạc", "hay", "cảm xúc", "thư giãn", "sôi động"],
+    difficulty: 2
+  },
+
+  // More difficulty 3 challenges
+  {
+    prompt: "Tương lai",
+    category: "Khái niệm",
+    validWords: ["hy vọng", "kế hoạch", "mục tiêu", "ước mơ", "phát triển", "thay đổi", "cơ hội", "thách thức", "không chắc chắn", "tiến bộ"],
+    difficulty: 3
+  },
+  {
+    prompt: "Văn hóa",
+    category: "Xã hội",
+    validWords: ["truyền thống", "lễ hội", "ngôn ngữ", "phong tục", "nghệ thuật", "giá trị", "bản sắc", "di sản", "cộng đồng", "đa dạng"],
+    difficulty: 3
+  },
+  {
+    prompt: "Môi trường",
+    category: "Sinh thái",
+    validWords: ["ô nhiễm", "bảo vệ", "rác thải", "tái chế", "xanh", "sạch", "bền vững", "khí hậu", "động vật hoang dã", "rừng"],
+    difficulty: 3
+  },
+  {
+    prompt: "Kinh tế",
+    category: "Xã hội",
+    validWords: ["tiền", "đầu tư", "kinh doanh", "lợi nhuận", "thị trường", "cung cầu", "giá cả", "tăng trưởng", "khủng hoảng", "ổn định"],
+    difficulty: 3
+  },
+  {
+    prompt: "Giáo dục",
+    category: "Học tập",
+    validWords: ["tri thức", "kỹ năng", "phương pháp", "sáng tạo", "tư duy", "nghiên cứu", "thực hành", "ứng dụng", "đổi mới", "chất lượng"],
+    difficulty: 3
   }
 ]
 

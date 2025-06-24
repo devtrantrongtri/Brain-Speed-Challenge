@@ -143,6 +143,158 @@ const patterns: Pattern[] = [
     explanation: "Dãy giai thừa: 1!, 1!, 2!, 3!, 4!, 5!",
     difficulty: 4,
     type: "numeric"
+  },
+
+  // More arithmetic patterns (difficulty 1)
+  {
+    sequence: [10, 8, 6, 4, "?"],
+    answer: 2,
+    explanation: "Giảm dần mỗi số 2",
+    difficulty: 1,
+    type: "arithmetic"
+  },
+  {
+    sequence: [3, 6, 9, 12, "?"],
+    answer: 15,
+    explanation: "Bảng cửu chương 3",
+    difficulty: 1,
+    type: "arithmetic"
+  },
+  {
+    sequence: [1, 4, 7, 10, "?"],
+    answer: 13,
+    explanation: "Tăng dần mỗi số 3",
+    difficulty: 1,
+    type: "arithmetic"
+  },
+
+  // More geometric patterns (difficulty 2)
+  {
+    sequence: [5, 10, 20, 40, "?"],
+    answer: 80,
+    explanation: "Nhân 2 mỗi lần",
+    difficulty: 2,
+    type: "geometric"
+  },
+  {
+    sequence: [256, 64, 16, 4, "?"],
+    answer: 1,
+    explanation: "Chia 4 mỗi lần",
+    difficulty: 2,
+    type: "geometric"
+  },
+  {
+    sequence: [1, 5, 25, 125, "?"],
+    answer: 625,
+    explanation: "Lũy thừa của 5",
+    difficulty: 2,
+    type: "geometric"
+  },
+
+  // More Fibonacci variants (difficulty 2-3)
+  {
+    sequence: [2, 3, 5, 8, 13, "?"],
+    answer: 21,
+    explanation: "Fibonacci bắt đầu từ 2, 3",
+    difficulty: 2,
+    type: "fibonacci"
+  },
+  {
+    sequence: [1, 2, 3, 5, 8, 13, "?"],
+    answer: 21,
+    explanation: "Dãy Fibonacci mở rộng",
+    difficulty: 3,
+    type: "fibonacci"
+  },
+
+  // More complex numeric patterns (difficulty 3)
+  {
+    sequence: [0, 1, 4, 9, 16, "?"],
+    answer: 25,
+    explanation: "Số chính phương: 0², 1², 2², 3², 4², 5²",
+    difficulty: 3,
+    type: "numeric"
+  },
+  {
+    sequence: [1, 3, 6, 10, 15, "?"],
+    answer: 21,
+    explanation: "Số tam giác: n(n+1)/2",
+    difficulty: 3,
+    type: "numeric"
+  },
+  {
+    sequence: [2, 5, 11, 23, 47, "?"],
+    answer: 95,
+    explanation: "Nhân 2 rồi cộng 1",
+    difficulty: 3,
+    type: "numeric"
+  },
+  {
+    sequence: [1, 4, 13, 40, 121, "?"],
+    answer: 364,
+    explanation: "Nhân 3 rồi cộng 1",
+    difficulty: 3,
+    type: "numeric"
+  },
+
+  // More logical patterns (difficulty 3-4)
+  {
+    sequence: ["B", "D", "F", "H", "?"],
+    answer: "J",
+    explanation: "Chữ cái chẵn trong bảng chữ cái",
+    difficulty: 3,
+    type: "logical"
+  },
+  {
+    sequence: ["Z", "Y", "X", "W", "?"],
+    answer: "V",
+    explanation: "Bảng chữ cái ngược từ Z",
+    difficulty: 3,
+    type: "logical"
+  },
+  {
+    sequence: [21, 1211, 111221, 31211311, "?"],
+    answer: 13112221,
+    explanation: "Look-and-say: đọc mô tả số trước",
+    difficulty: 4,
+    type: "logical"
+  },
+
+  // Advanced mathematical patterns (difficulty 4)
+  {
+    sequence: [6, 28, 496, 8128, "?"],
+    answer: 33550336,
+    explanation: "Số hoàn hảo: bằng tổng ước số thực sự",
+    difficulty: 4,
+    type: "numeric"
+  },
+  {
+    sequence: [1, 2, 6, 24, 120, 720, "?"],
+    answer: 5040,
+    explanation: "Giai thừa: 1!, 2!, 3!, 4!, 5!, 6!, 7!",
+    difficulty: 4,
+    type: "numeric"
+  },
+  {
+    sequence: [1, 11, 121, 1331, "?"],
+    answer: 14641,
+    explanation: "Lũy thừa của 11: 11⁰, 11¹, 11², 11³, 11⁴",
+    difficulty: 4,
+    type: "numeric"
+  },
+  {
+    sequence: [1, 2, 4, 7, 11, 16, "?"],
+    answer: 22,
+    explanation: "Tăng dần: +1, +2, +3, +4, +5, +6",
+    difficulty: 4,
+    type: "numeric"
+  },
+  {
+    sequence: [2, 6, 30, 210, 2310, "?"],
+    answer: 30030,
+    explanation: "Primorial: tích các số nguyên tố đầu tiên",
+    difficulty: 4,
+    type: "numeric"
   }
 ]
 
